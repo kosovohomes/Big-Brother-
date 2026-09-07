@@ -1,0 +1,84 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+local-*
+.claude
+.z-ai-config
+*.log
+dev.log
+dev.out.log
+test
+prompt
+
+server.log
+# Skills directory
+/skills/
+# reference clone of original repo (archived on GitHub as archive/v0.1.0)
+/Big-Brother-
+# internal tooling artifacts
+/tool-results/
+*.db-wal
+*.db-shm
+.zscripts/dev.pid
+
+# Phase A local infra binaries + eval artifacts
+var/
+data/dev-master.key
+data/db/
+data/minio/
+data/minio-certs/
+data/db/
+
+# Convex auth secrets (never commit)
+scripts/convex-token-backup.json
+scripts/convex-login.log
+scripts/convex-seed-dump.json
+
+# Task 14: secrets hygiene — master key never ships in the repo again
+data/dev-master.key
+.backups/
+
+# Neon role credentials (pg cutover)
+scripts/pg/.neon-credentials.json
+
+# user uploads (never publish screenshots/uploads to the repo)
+upload/

@@ -1,0 +1,109 @@
+{
+  "sourceClass": "article-mirror",
+  "schemaNote": "This is NOT a gazette-drop manifest — docs/rag/schemas/manifest.schema.json (manifestVersion 1) applies to future Al-Kuwait Al-Yawm PDF/TXT drops with a known issue number. This file pins mirror-derived, article-structured corpora so ingestion is reproducible and tamper-evident (sha256 per file).",
+  "ingestionTarget": "legal_provisions (global LKB, sole citation source) — verified:false, routed into the Phase 0 lawyer audit queue (PRD 6.3a). Never RagChunk directly: RAG chunking/embedding (Phase R0) consumes LegalProvision rows, never raw seed/drop files (RAG_SPEC C-R2).",
+  "operator": {
+    "name": "almizanpro-del (user-supplied upload, 2026-09-07; re-attach rebuild from fresh mirror fetches, 2026-09-08)",
+    "attestation": true
+  },
+  "identityResolution": {
+    "note": "Task 13 re-attach (2026-09-08): the original upload's two extra files were lost to a sandbox reset. Web verification showed BOTH of their labels were mislabels — rebuilt from fresh mirror fetches under the TRUE lawIds (never guessed, per manifest.schema.json):",
+    "civilTransactions25_1980": "No Kuwaiti law '25/1980' exists (web search returned nothing). Kuwait's Civil Code is المرسوم بالقانون رقم 67 لسنة 1980 بإصدار القانون المدني — rebuilt as KW_CivilCode_67_1980_clean.json under lawId 67/1980.",
+    "rental51_1996": "Kuwait Law 51/1996 is the Personal Status Law (الأحوال الشخصية) — the LKB already holds 14 fixture summary rows under 51/1996. The rental law is المرسوم بالقانون رقم 35 لسنة 1978 في شأن إيجار العقارات — rebuilt as KW_Rental_35_1978_clean.json under lawId 35/1978.",
+    "provenance": "Raw mirror snapshots pinned at corpus/_raw/ (almohami.com law library, fetched 2026-09-08). Mirror-class: attestation=false on the derived inbox drops, lawyer pins the real gazette identity in Phase 0."
+  },
+  "lawIdMapping": {
+    "note": "Mirror files use their own law_id namespace; the repo convention (rules/catalog.ts + seed fixtures) is '<number>/<year>'. Ingest rewrites lawId accordingly so resolveRef and engine rule refs keep matching.",
+    "KW-PENAL-16-1960": "16/1960",
+    "KW-CRIMPROC-17-1960": "17/1960",
+    "KW-CIVPROC-38-1980": "38/1980",
+    "KW-CIVIL-67-1980": "67/1980",
+    "KW-RENT-35-1978": "35/1978"
+  },
+  "files": [
+    {
+      "path": "KW_PenalCode_16_1960_clean.json",
+      "mirrorLawId": "KW-PENAL-16-1960",
+      "lawId": "16/1960",
+      "lawNameAr": "قانون الجزاء رقم 16 لسنة 1960",
+      "lawNameEn": "Penal Code No. 16 of 1960",
+      "expectedArticleCount": 293,
+      "verifiedOfficial": false,
+      "sha256": "4049a16857d4d383052da7de57fa58deefb9be7d561deba1c1b5b01ed9771d8e",
+      "knownQuirks": [
+        "171 articles embed amendment provenance inline: 'النص النهائي للمادة ...' + 'النص الأصلي للمادة:' — ingest splits these into a version chain (v1 original, v2 amended) mirroring the kb/audit amend mechanism",
+        "7 مكرر (bis) article numbers, e.g. '135 مكرر'",
+        "Some labels carry a repeal marker ('ملغاة') whose subject is ambiguous (article vs amending law) — ingest keeps the original text ACTIVE + unverified and surfaces the marker in verification_note; the lawyer decides in Phase 0"
+      ]
+    },
+    {
+      "path": "KW_CriminalProcedure_17_1960_clean.json",
+      "mirrorLawId": "KW-CRIMPROC-17-1960",
+      "lawId": "17/1960",
+      "lawNameAr": "قانون رقم 17 لسنة 1960 بإصدار قانون الإجراءات والمحاكمات الجزائية",
+      "lawNameEn": "Law No. 17 of 1960 on Criminal Procedure",
+      "expectedArticleCount": 263,
+      "verifiedOfficial": false,
+      "sha256": "52518f8bad5b8e90d8e0c22f8e5ed40d99663a18fc8323969388019e1f6c0380",
+      "knownQuirks": [
+        "7 article numbers appear twice with DIFFERENT texts (pre-amendment vs amended variants, some with OCR debris like stray 't'/')' glyphs) — ingest keeps the FIRST occurrence, records the second as a skipped variant in the ingest report for lawyer reconciliation",
+        "6 مكرر variants in non-canonical forms ('104مكررا', '216مكرر 1') — normalized to '<n> مكرر'",
+        "Carries the source's own disclaimer: 'الرجاء عدم اعتبار المادة المعروضة أعلاه رسمية أو نهائية'"
+      ]
+    },
+    {
+      "path": "KW_CivilProcedure_38_1980_clean.json",
+      "mirrorLawId": "KW-CIVPROC-38-1980",
+      "lawId": "38/1980",
+      "lawNameAr": "قانون المرافعات المدنية والتجارية رقم 38 لسنة 1980",
+      "lawNameEn": "Civil and Commercial Procedure Law No. 38 of 1980",
+      "expectedArticleCount": 311,
+      "verifiedOfficial": false,
+      "sha256": "f1e9ccca177a740a0b98c5cb6312476b3326ceae7369c9cc07810cdf349ceb26",
+      "knownQuirks": [
+        "96 rows have the first letter of the article text glued into article_number_raw ('4 \\nا' + text starting 'ذ نص...' = 'اذا نص...') — ingest repairs by re-attaching the glued letter; note some rows lost MORE than one character at the source (e.g. article 4 reconstructs to 'اذ نص' — the second 'ا' exists nowhere in the mirror), so a handful of first words stay imperfect and need the lawyer's amend in Phase 0",
+        "مكرر variants ('109 مكرراً') normalized to '<n> مكرر'",
+        "Article 177 text is 'ملغاة' (repealed) — ingested with the repeal marker surfaced in verification_note"
+      ]
+    },
+    {
+      "path": "KW_CivilCode_67_1980_clean.json",
+      "mirrorLawId": "KW-CIVIL-67-1980",
+      "lawId": "67/1980",
+      "lawNameAr": "المرسوم بالقانون رقم 67 لسنة 1980 بإصدار القانون المدني",
+      "lawNameEn": "Kuwait Civil Code (Decree-Law No. 67 of 1980)",
+      "expectedArticleCount": 1082,
+      "verifiedOfficial": false,
+      "sha256": "3552ff70cc5ed6d0fc7fa0e2850756c9dd2df3877c2a5128dba27c360377247e",
+      "knownQuirks": [
+        "Identity resolution: the wiped 2026-09-07 upload was labeled 'Civil transactions law 25/1980' — no Kuwait law 25/1980 exists; the Civil Code is Decree 67/1980. Mirror naming variant 'مرسوم بقانون' vs 'مرسوم بالقانون' — gazette identity to be pinned in Phase 0",
+        "Full coverage verified at fetch time: 1082/1082 article headers present, none missing (1..1082)",
+        "Rebuilt 2026-09-08 from a fresh almohami.com fetch (raw snapshot: corpus/_raw/almohami-civil-67-1980.json); earlier 'Civil transactions 25/1980' partial upload (12 articles) was lost to a sandbox reset and never ingested",
+        "Later amendments (e.g. Decree-Law 4/2025 amending art 441) are NOT consolidated in this snapshot — lawyer must reconcile against the gazette in Phase 0"
+      ]
+    },
+    {
+      "path": "KW_Rental_35_1978_clean.json",
+      "mirrorLawId": "KW-RENT-35-1978",
+      "lawId": "35/1978",
+      "lawNameAr": "المرسوم بالقانون رقم 35 لسنة 1978 في شأن إيجار العقارات",
+      "lawNameEn": "Kuwait Rental of Real Estate Law (Decree-Law No. 35 of 1978)",
+      "expectedArticleCount": 29,
+      "verifiedOfficial": false,
+      "sha256": "22c2a078e37faff0729e4aff4817b57f24495d83a27d61c361955551c925fb43",
+      "knownQuirks": [
+        "Identity resolution: the wiped upload was labeled 'Rental 51/1996' — Kuwait Law 51/1996 is the Personal Status Law (14 fixture summary rows already under 51/1996); the rental law is Decree 35/1978",
+        "Mirror carries the original 1978 text, 29 articles (1–29) as the source itself marks '(1 – 29)' — later amendments NOT consolidated; Phase 0 lawyer must reconcile",
+        "Cross-checked against kuwaitlawyer.net/law-rents (same 29-article coverage); raw snapshot: corpus/_raw/almohami-rental-35-1978.json"
+      ]
+    }
+  ],
+  "excluded": {
+    "kuwait_laws_articles.jsonl": "Discarded at the source — almost entirely broken scraping debris. MUST NEVER be ingested.",
+    "Decree-Law 80/2026": "Intentionally absent everywhere in this repo (PRD v2.1 Change 4); hard-blocked by policy."
+  },
+  "missing": [
+    "Law 9/2020 (electronic service law) full text — only 3 fixture articles exist; a verified source must be found before ingestion",
+    "No cross-check against the official Al-Kuwait Al-Yawm gazette yet — that IS the Phase 0 verification step for a licensed lawyer"
+  ]
+}

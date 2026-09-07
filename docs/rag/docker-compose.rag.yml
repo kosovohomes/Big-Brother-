@@ -1,0 +1,111 @@
+# =====================================================================
+# Big Brother — Self-Hosted RAG stack (DESIGN REFERENCE, docs/rag/)
+# Companion to docs/RAG_SPEC.md + docs/rag/DELIVERABLES.md.
+# Profiles: core (default) | ocr | cpu-llm | gpu | qdrant
+#   dev, no GPU:      docker compose --profile core --profile cpu-llm up
+#   prod, 24GB GPU:   docker compose --profile core --profile ocr --profile gpu up
+# Inference services sit on the `internal` network (internal: true):
+# they cannot reach the internet — no text can leave the deployment.
+# Defaults reproduce today's behavior (RAG_ENABLED=false, LLM_PROVIDER=off).
+# =====================================================================
+
+services:
+  app:
+    build: ../..                      # the Next.js repo root
+    ports: ["3000:3000"]
+    environment:
+      DATABASE_URL: postgresql://bb:bb@db:5432/bigbrother   # Phase A A1 target
+      RAG_ENABLED: "false"            # master switch — off by default
+      EMBED_PROVIDER: tei
+      EMBED_MODEL: BAAI/bge-m3
+      EMBED_DIM: "1024"
+      VECTOR_BACKEND: pgvector        # qdrant profile documented as scale-out path
+      LLM_PROVIDER: "off"             # vllm | ollama | off
+      LLM_MODEL: Qwen/Qwen2.5-14B-Instruct-AWQ
+      EXTERNAL_LLM_ENABLED: "false"   # anonymized rule-text tasks only, default OFF
+      RAG_INBOX: /data/gazette/inbox
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+    networks: [frontend, internal]
+    depends_on:
+      db: { condition: service_healthy }
+
+  db:
+    image: pgvector/pgvector:pg16     # Postgres 16 + pgvector (Phase A A1)
+    environment:
+      POSTGRES_USER: bb
+      POSTGRES_PASSWORD: bb
+      POSTGRES_DB: bigbrother
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bb -d bigbrother"]
+      interval: 5s
+      retries: 10
+    networks: [internal]
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-bbroot}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-bbrootsecret}
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [miniodata:/data]
+    networks: [internal]
+
+  tei:                               # local embeddings — bge-m3, no egress
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.6
+    command: ["--model-id", "BAAI/bge-m3", "--max-client-batch-size", "32"]
+    volumes: ["./models/bge-m3:/data:ro"]
+    networks: [internal]
+
+  ocr-worker:                        # PaddleOCR primary, Tesseract ara fallback
+    build: { context: ., dockerfile: Dockerfile.ocr }
+    profiles: [ocr]
+    environment:
+      RAG_INBOX: /data/gazette/inbox
+      OCR_ENGINE: paddle
+      OCR_MIN_CONFIDENCE: "0.85"
+      DATABASE_URL: postgresql://bb:bb@db:5432/bigbrother
+    volumes:
+      - ${RAG_INBOX_HOST:-./var/rag/inbox}:/data/gazette/inbox
+      - ./var/rag/work:/data/rag/work
+    networks: [internal]
+    depends_on:
+      db: { condition: service_healthy }
+
+  ollama:                            # CPU LLM fallback (dev)
+    image: ollama/ollama:latest
+    profiles: [cpu-llm]
+    volumes: [ollamadata:/root/.ollama]
+    networks: [internal]
+
+  vllm:                              # GPU LLM (prod reference)
+    image: vllm/vllm-openai:latest
+    profiles: [gpu]
+    command: ["--model", "Qwen/Qwen2.5-14B-Instruct-AWQ", "--quantization", "awq", "--max-model-len", "8192"]
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+    deploy:
+      resources:
+        reservations:
+          devices: [{ driver: nvidia, count: 1, capabilities: [gpu] }]
+    networks: [internal]
+
+  qdrant:                            # alternative vector backend (documented, not default)
+    image: qdrant/qdrant:latest
+    profiles: [qdrant]
+    volumes: [qdrantdata:/qdrant/storage]
+    networks: [internal]
+
+networks:
+  frontend: {}
+  internal:
+    internal: true                   # no egress — constraint: no text leaves the deployment
+
+volumes:
+  pgdata: {}
+  miniodata: {}
+  ollamadata: {}
+  qdrantdata: {}

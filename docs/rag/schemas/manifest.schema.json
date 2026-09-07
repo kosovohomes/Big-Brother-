@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://big-brother.local/schemas/rag/manifest.schema.json",
+  "title": "Gazette Ingest Manifest (v1)",
+  "description": "Operator-signed manifest accompanying each dropped gazette issue. See docs/RAG_SPEC.md section 1.2 and docs/rag/DELIVERABLES.md section 7.2. Idempotency key = sha256 of the canonical JSON (IngestJob.manifestHash).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["manifestVersion", "issueNo", "publishDate", "sourceType", "sourcePath", "sourceSha256", "laws", "operator"],
+  "properties": {
+    "manifestVersion": { "const": "1" },
+    "issueNo": { "type": "string", "minLength": 1, "description": "Al-Kuwait Al-Yawm gazette issue number" },
+    "publishDate": { "type": "string", "format": "date", "description": "Publication date; laws enter into force on publication (becomes gazetteDate + effectiveFrom on chunks)" },
+    "sourceType": { "enum": ["pdf", "txt"] },
+    "sourcePath": { "type": "string", "minLength": 1, "description": "Path relative to the manifest's own drop directory (e.g. RAG_INBOX/issue-<no>/ for gazette drops, RAG_INBOX/<law-id>/ for mirror drops). Must not escape the drop directory." },
+    "sourceSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "laws": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["lawId", "lawNameAr"],
+        "properties": {
+          "lawId": { "type": "string", "pattern": "^[0-9]+/[0-9]{4}$|^[A-Z]+(/[0-9]{4})?$", "description": "Must match LegalProvision.lawId or be an explicitly new law (never guessed). Decree-Law 80/2026 is hard-blocked (BLOCKED_POLICY)." },
+          "lawNameAr": { "type": "string", "minLength": 1 },
+          "expectedArticleCount": { "type": "integer", "minimum": 1 },
+          "scopeNotes": { "type": "string" }
+        }
+      }
+    },
+    "operator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "attestation"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "attestation": {
+          "type": "boolean",
+          "description": "true = operator attests the source is the official gazette/MOJ text obtained through an authorized channel (no authenticated scraping) — chunks may progress to LIVE after lawyer verification. false = provisional mirror-class source (e.g. corpus/SOURCES.json article mirrors): the ingest is accepted but the job can never reach INDEXED/LIVE and every hit is flagged provisionalSource until a lawyer re-attests with the real gazette identity. Exists to keep bad data out — never rubber-stamp."
+        }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

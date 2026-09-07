@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;900&family=Noto+Serif+SC:wght@700;900&family=Noto+Naskh+Arabic:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    @page { size: 794px 1123px; margin: 0; }
+    :root {
+      --c-bg: #0a1628;
+      --c-accent: #4da8da;
+      --c-text: #e8f0f8;
+      --c-muted: #7a9bb8;
+      --c-glow: #2d7ab3;
+    }
+    html, body { margin: 0; padding: 0; width: 794px; height: 1123px; background: var(--c-bg); color: var(--c-text); font-family: 'Inter', 'Noto Naskh Arabic', sans-serif; }
+    @media screen {
+      html { height: auto; display: flex; justify-content: center; min-height: 100vh; background: var(--c-bg); }
+      body { transform-origin: top center; scale: min(1, calc(100vw / 794), calc(100vh / 1123)); margin: 0 auto; box-shadow: 0 0 60px rgba(0,0,0,0.3); }
+    }
+    .cover { width: 794px; height: 1123px; position: relative; box-sizing: border-box; border: none; outline: none; box-shadow: none; }
+    /* Layer 1 — background glow (clipped) */
+    .bg-layer { position: absolute; inset: 0; overflow: hidden; z-index: 1; }
+    .glow-a { position: absolute; left: -120px; top: -100px; width: 480px; height: 480px;
+              background: radial-gradient(circle, rgba(45,122,179,0.08) 0%, rgba(45,122,179,0) 70%); }
+    .glow-b { position: absolute; right: -100px; bottom: -120px; width: 520px; height: 520px;
+              background: radial-gradient(circle, rgba(45,122,179,0.07) 0%, rgba(45,122,179,0) 70%); }
+    /* Layer 2 — luminous rectangular frame */
+    .frame { position: absolute; left: 60px; right: 60px; top: 80px; bottom: 80px;
+             border: 2px solid var(--c-accent); z-index: 2; pointer-events: none; }
+    /* Layer 3 — content */
+    .content { position: absolute; inset: 0; z-index: 3; }
+    .kicker { position: absolute; left: 104px; top: 135px; font-size: 11pt; color: var(--c-accent);
+              letter-spacing: 5px; text-transform: uppercase; font-weight: 300; }
+    .title { position: absolute; left: 104px; top: 236px; font-size: 50pt; font-weight: 900;
+             line-height: 1.15; font-family: 'Noto Serif SC', 'Noto Naskh Arabic', serif;
+             color: var(--c-text); max-width: 560px;
+             text-shadow: 0 0 24px rgba(77,168,218,0.25); }
+    .title .ar { display: block; direction: rtl; text-align: left; font-size: 38pt;
+                 font-family: 'Noto Naskh Arabic', 'Noto Serif SC', serif; font-weight: 700;
+                 margin-top: 14px; color: #cfe2f0; }
+    .summary { position: absolute; left: 104px; top: 505px; font-size: 15pt; line-height: 1.7;
+               color: var(--c-muted); max-width: 520px; }
+    .org { position: absolute; left: 104px; top: 762px; font-size: 17pt; color: var(--c-text);
+           font-weight: 500; letter-spacing: 0.5px; max-width: 560px; }
+    .org-sub { position: absolute; left: 104px; top: 818px; font-size: 11.5pt; color: var(--c-muted); max-width: 560px; line-height: 1.5; }
+    .date { position: absolute; left: 104px; bottom: 130px; font-size: 10pt; color: var(--c-muted);
+            letter-spacing: 3px; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+  <div class="cover">
+    <div class="bg-layer">
+      <div class="glow-a"></div>
+      <div class="glow-b"></div>
+    </div>
+    <div class="frame"></div>
+    <div class="content">
+      <div class="kicker">Technical Architecture Specification</div>
+      <div class="title">BIG BROTHER<span class="ar">الأخ الكبير</span></div>
+      <div class="summary">Current-state assessment and target architecture for the Arabic-first
+        legal self-help platform for Kuwaiti courts: Postgres with row-level security and
+        per-tenant envelope encryption, self-hosted RAG retrieval grounded in the 48-provision
+        Legal Knowledge Base, Counter-Reply v2 with per-sentence traces, and phased delivery
+        under a 162-check compliance suite.</div>
+      <div class="org">Multi-Tenant SaaS · Kuwait Courts Platform</div>
+      <div class="org-sub">Next.js 16 · deterministic compliance engine · extends the shipped v2.1 build (38 API routes, 28-rule catalogue, 98-check e2e)</div>
+      <div class="date">September 2026 · Prepared for Phases A–C</div>
+    </div>
+  </div>
+</body>
+</html>

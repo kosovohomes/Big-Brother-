@@ -1,0 +1,60 @@
+# =====================================================================
+# Phase A (A0) — self-hosted stack: app + Postgres 16 (RLS) + MinIO.
+# Sandbox/dev keeps STORAGE_BACKEND=sqlite with zero infrastructure;
+# this compose file is the deployment target for the pg backend.
+# Usage:
+#   docker compose up -d db minio           # infrastructure only
+#   docker compose run --rm app             # app against the stack
+# Postgres bootstrap: scripts/pg/001..006 (see docs/PHASE_A_SPEC.md A1.5).
+# =====================================================================
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: bb_migrator
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bb_dev_password}
+      POSTGRES_DB: bigbrother
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bb_migrator -d bigbrother"]
+      interval: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-bbroot}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-bbrootsecret}
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [miniodata:/data]
+
+  app:
+    build: .
+    ports: ["3000:3000"]
+    environment:
+      STORAGE_BACKEND: pg
+      DATABASE_URL: postgresql://bb_app:${POSTGRES_PASSWORD:-bb_dev_password}@db:5432/bigbrother
+      DATABASE_URL_SYSTEM: postgresql://bb_system:${POSTGRES_PASSWORD:-bb_dev_password}@db:5432/bigbrother
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is mandatory in pg mode (C-A7)}
+      COOKIE_SECURE: "true"
+      KMS_PROVIDER: dev
+      KMS_DEV_MASTER_KEY_FILE: /data/keys/dev-master.key
+      ENCRYPTION_ENABLED: "true"
+      OBJECT_STORAGE_ENABLED: "true"
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: bb-docs
+      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-bbroot}
+      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-bbrootsecret}
+      S3_FORCE_PATH_STYLE: "true"
+      DOC_RETENTION_YEARS: "5"
+      VIRUS_SCAN_PROVIDER: "none"
+    volumes: [appdata:/data]
+    depends_on:
+      db: { condition: service_healthy }
+
+volumes:
+  pgdata: {}
+  miniodata: {}
+  appdata: {}

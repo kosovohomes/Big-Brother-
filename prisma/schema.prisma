@@ -1,0 +1,479 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// =====================================================================
+// SCHEMA DOCUMENTATION (Phase A parity, A0/A1.4): runtime DDL lives in
+// src/lib/sqlite.mjs (SQLite) and scripts/pg/*.sql (Postgres 16 + RLS).
+// Every model/column now maps to the physical snake_case names (@@map/
+// @map — closes C-A6) so this file is a true portable mirror.
+// =====================================================================
+
+// ===================== Multi-tenant SaaS (Tenancy) =====================
+
+model Organization {
+  id        String   @id @default(cuid()) @map("id")
+  name      String   @map("name")
+  slug      String   @unique @map("slug")
+  // INDIVIDUAL | NGO | LAW_FIRM
+  type      String   @default("INDIVIDUAL") @map("type")
+  // FREE | PRO (SaaS plan)
+  plan      String   @default("FREE") @map("plan")
+  // Stage 5 billing: subscription status and renewal, Stripe linkage
+  planStatus          String  @default("active") @map("plan_status") // active | canceled | past_due
+  planRenewsAt        DateTime? @map("plan_renews_at")
+  stripeCustomerId    String? @map("stripe_customer_id")
+  stripeSubscriptionId String? @map("stripe_subscription_id")
+  joinCode  String   @unique @map("join_code") // invite code for NGO/firm members
+  // NGO review-queue partnership flag (PRD 5.8 AC4): when true, misconduct/nazaha
+  // drafts generated inside this org are routed to human review before release
+  reviewQueueEnabled Boolean @default(false) @map("review_queue_enabled")
+  // Phase A A2.4: org offboarding (crypto-shredding workflow) — mirrors the
+  // user-level 7-day pattern on User.deleteScheduledAt
+  deleteScheduledAt DateTime? @map("delete_scheduled_at")
+  deletedAt         DateTime? @map("deleted_at") // set when shred+redact completes (tombstone)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  members    Membership[] @relation("org_members")
+  cases      Case[]
+  drafts     PackDraft[]
+  auditLogs  AuditLog[]
+  billingEvents BillingEvent[]
+  notifications Notification[]
+  keys       OrgEncryptionKey[]
+
+  @@map("organizations")
+}
+
+// Stage 5: billing ledger — every plan change (demo checkout, Stripe webhook,
+// owner cancel) is recorded. `ref` stores the Stripe event id for idempotency
+// (unique), so webhook retries never double-apply.
+model BillingEvent {
+  id      String   @id @default(cuid()) @map("id")
+  orgId   String   @map("org_id")
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  at      DateTime @default(now()) @map("at")
+  kind    String   @map("kind") // upgrade | downgrade | webhook.checkout.session.completed | ...
+  plan    String   @default("FREE") @map("plan")
+  detail  String?  @map("detail")
+  ref     String?  @unique @map("ref")
+  // Phase A C-A5: Postgres replacement for rowid newest-first ordering
+  seq     BigInt   @default(autoincrement()) @map("seq")
+
+  @@map("billing_events")
+}
+
+// Stage 6: per-user notification inbox — nothing is org-wide. dedupeKey makes
+// reminder generation idempotent (unique per user); deadline reminders escalate
+// through soon → critical → overdue buckets (each band is its own row).
+model Notification {
+  id        String   @id @default(cuid()) @map("id")
+  orgId     String   @map("org_id")
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userId    String   @map("user_id")
+  type      String   @map("type") // deadline.reminder | draft.review_requested | draft.released | document.mismatch | document.risk_high
+  dedupeKey String   @map("dedupe_key")
+  titleAr   String   @map("title_ar")
+  titleEn   String   @map("title_en")
+  bodyAr    String?  @map("body_ar")
+  bodyEn    String?  @map("body_en")
+  caseId    String?  @map("case_id")
+  refType   String?  @map("ref_type")
+  refId     String?  @map("ref_id")
+  urgency   String?  @map("urgency") // overdue | critical | soon | high | medium | low
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  // Phase A C-A5: Postgres replacement for rowid newest-first ordering
+  seq       BigInt   @default(autoincrement()) @map("seq")
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, orgId])
+  @@map("notifications")
+}
+
+model User {
+  id           String   @id @default(cuid()) @map("id")
+  email        String   @unique @map("email")
+  passwordHash String   @map("password_hash")
+  name         String   @map("name")
+  locale       String   @default("ar") @map("locale")
+  // scheduled deletion workflow (PRD 5.10 AC1: completed within 7 days)
+  deleteScheduledAt DateTime? @map("delete_scheduled_at")
+  // Phase A C-A7: sessions issued before this epoch are invalid (logout/revocation)
+  sessionsInvalidBefore DateTime? @map("sessions_invalid_before")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  memberships Membership[] @relation("user_memberships")
+  acks        Acknowledgment[]
+  feedbacks   Feedback[]
+  consents    Consent[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Membership {
+  id     String @id @default(cuid()) @map("id")
+  userId String @map("user_id")
+  orgId  String @map("org_id")
+  // OWNER | ADMIN | CASEWORKER | LAWYER | MEMBER
+  role   String @default("MEMBER") @map("role")
+  user User         @relation("user_memberships", fields: [userId], references: [id], onDelete: Cascade)
+  org  Organization @relation("org_members", fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, orgId])
+  @@map("memberships")
+}
+
+// ============== Legal Knowledge Base (PRD 6.3a — sole citation source) ==============
+
+model LegalProvision {
+  id        String  @id @default(cuid()) @map("id")
+  lawId     String  @map("law_id") // e.g. "38/1980", "51/1996", "9/2020"
+  lawNameAr String  @map("law_name_ar")
+  lawNameEn String  @map("law_name_en")
+  articleNo String  @map("article_no") // "163", "257-260", "P-1"
+  // amendment version label; full history retained, superseded rows kept (never overwritten)
+  amendmentVersion String  @default("original") @map("amendment_version")
+  effectiveFrom    DateTime? @map("effective_from")
+  effectiveTo      DateTime? @map("effective_to") // null = current version
+  gazetteRef       String? @map("gazette_ref") // official Al-Youm gazette reference where available
+  titleAr          String  @map("title_ar")
+  titleEn          String  @map("title_en")
+  textAr           String  @map("text_ar")
+  textEn           String  @map("text_en")
+  summaryAr        String  @default("") @map("summary_ar") // lawyer-reviewed plain-language summary (Phase 0)
+  summaryEn        String  @default("") @map("summary_en")
+  topics           String  @default("[]") @map("topics") // JSON array
+  // false until Phase 0 citation audit signs off → UI must show
+  // "unverified — flagged for legal review" badge (PRD 3.3, 6.3)
+  verified          Boolean @default(false) @map("verified")
+  verificationNote  String? @map("verification_note")
+  // Phase 0 sign-off trail: who verified and when (lawyer-only actions)
+  verifiedBy        String? @map("verified_by")
+  verifiedAt        DateTime? @map("verified_at")
+  version           Int     @default(1) @map("version")
+  supersedesId      String? @map("supersedes_id") // previous version of this provision
+  isActive          Boolean @default(true) @map("is_active") // latest active version
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  supersededBy LegalProvision? @relation("provisionVersions", fields: [supersedesId], references: [id])
+  versions     LegalProvision[] @relation("provisionVersions")
+
+  @@unique([lawId, articleNo, version])
+  @@index([lawId, articleNo])
+  @@map("legal_provisions")
+}
+
+// ===================== Case management =====================
+
+model Case {
+  id        String   @id @default(cuid()) @map("id")
+  orgId     String   @map("org_id")
+  ownerId   String   @map("owner_id") // creating user
+  number    String   @map("number")
+  court     String   @map("court")
+  circuit   String?  @map("circuit")
+  // civil | criminal | family
+  caseType  String   @default("civil") @map("case_type")
+  // execution | debt | family | labour | commercial | misdemeanour | felony
+  subType   String   @default("execution") @map("sub_type")
+  role      String   @default("defendant") @map("role")
+  filedAt   String?  @map("filed_at")
+  servedAt  String?  @map("served_at")
+  opponent  String?  @map("opponent")
+  // A2.3: encrypted at rest (enc:v1:<kv>:<b64(iv||ct||tag)>, AAD tenant-bound)
+  opponentPleading String? @map("opponent_pleading")
+  // NGO-assisted intake (PRD 5.1 AC4): client the case belongs to
+  subjectName String? @map("subject_name")
+  intakeChannel String @default("self") @map("intake_channel") // self | ngo_assisted | voice_note
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  events   CaseEvent[]
+  documents Document[]
+  deadlines Deadline[]
+  drafts   PackDraft[]
+  consents Consent[]
+  feedbacks Feedback[]
+
+  @@map("cases")
+}
+
+model CaseEvent {
+  id     String  @id @default(cuid()) @map("id")
+  caseId String  @map("case_id")
+  date   String  @map("date") // ISO date
+  title  String  @map("title")
+  // filing | service | service-issue | session | adjournment | submission |
+  // late-submission | judgment | prior-judgment | standing-issue | claim-defect |
+  // debt-due | execution | hearing | other
+  type        String  @default("other") @map("type")
+  note        String? @map("note")
+  appealFiled Boolean @default(false) @map("appeal_filed")
+  defect      Boolean @default(false) @map("defect")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@map("case_events")
+}
+
+// Immutable evidence log (PRD 5.9): SHA-256 + UTC timestamp; on version change
+// both versions preserved; mismatch flagged via previousId chain
+model Document {
+  id       String  @id @default(cuid()) @map("id")
+  caseId   String  @map("case_id")
+  name     String  @map("name")
+  hash     String  @map("hash")
+  size     Int     @default(0) @map("size")
+  mime     String? @map("mime")
+  hashedAt String  @map("hashed_at") // UTC ISO
+  // LOW | MEDIUM | HIGH (metadata anomaly heuristic; never asserts forgery)
+  metaRisk String  @default("LOW") @map("meta_risk")
+  notes    String? @map("notes")
+  version  Int     @default(1) @map("version")
+  previousId String? @map("previous_id") // prior sealed version of same document
+  createdAt DateTime @default(now()) @map("created_at")
+  // ---- Phase A A3 object-originals (all null when OBJECT_STORAGE_ENABLED=false) ----
+  storageKey      String?   @map("storage_key") // s3://bucket/org/{orgId}/case/{caseId}/{docId}/v{n}-{sha256}
+  storageVersionId String?  @map("storage_version_id") // S3/MinIO versionId (object-lock evidence)
+  storageClass    String?   @map("storage_class") // STANDARD | GLACIER_IR (aging policy)
+  retentionUntil  DateTime? @map("retention_until") // WORM object-lock retain-until (COMPLIANCE)
+  deletedAt       DateTime? @map("deleted_at") // metadata purge marker (blob survives WORM, DEK shredded)
+  virusScanStatus String?   @map("virus_scan_status") // pending | clean | infected | skipped
+  virusScanAt     DateTime? @map("virus_scan_at")
+  idempotencyKey  String?   @unique @map("idempotency_key") // retried uploads never double-seal
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+}
+
+// Deadline Radar (derived + manual deadlines; iCal export)
+model Deadline {
+  id        String  @id @default(cuid()) @map("id")
+  caseId    String  @map("case_id")
+  titleAr   String  @map("title_ar")
+  titleEn   String  @map("title_en")
+  dueAt     String  @map("due_at") // ISO datetime
+  // appeal | opposition | session | custom
+  kind      String  @default("custom") @map("kind")
+  provisionRef String? @map("provision_ref") // lawId + article, resolved against LKB
+  completed Boolean @default(false) @map("completed")
+  sourceEventId String? @map("source_event_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@map("deadlines")
+}
+
+// ===================== Two-layer outputs (PRD 5.5/5.6/6.6) =====================
+
+// Layer 1 (default) = educational explainer computed on the fly by the engine.
+// Layer 2 = case-specific "Discussion Draft", only created on explicit user
+// action with acknowledgment, never labeled filing-ready (PRD 9.3).
+model PackDraft {
+  id        String   @id @default(cuid()) @map("id")
+  caseId    String   @map("case_id")
+  orgId     String   @map("org_id")
+  createdById String @map("created_by_id")
+  // counter | dismissal | evidence | misconduct | nazaha | combined
+  type      String   @map("type")
+  titleAr   String   @map("title_ar")
+  titleEn   String   @map("title_en")
+  // A2.3: encrypted at rest (enc:v1 prefix is self-describing; no flag column)
+  payload   String   @map("payload") // JSON document payload
+  // DRAFT | FINALIZED | IN_REVIEW | RELEASED | EXPORTED
+  status    String   @default("DRAFT") @map("status")
+  finalizedAt String? @map("finalized_at") // cooling-off clock start (PRD 5.8 AC4)
+  releasedAt  String? @map("released_at")
+  exportedAt  String? @map("exported_at")
+  coolingOffHours Int  @default(0) @map("cooling_off_hours") // 24 for misconduct/nazaha, 0 otherwise
+  reviewRequired  Boolean @default(false) @map("review_required")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  case Case         @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  acks Acknowledgment[]
+
+  @@map("pack_drafts")
+}
+
+// Mandatory acknowledgment log (PRD 5.6 AC4): accepted at draft generation
+// AND again at every export/download — auditable evidence of the banner flow
+model Acknowledgment {
+  id        String   @id @default(cuid()) @map("id")
+  userId    String   @map("user_id")
+  draftId   String?  @map("draft_id")
+  // DRAFT_GENERATION | EXPORT | CONSENT
+  kind      String   @map("kind")
+  bannerVersion String @default("v2.1") @map("banner_version")
+  textSnapshot String @map("text_snapshot") // exact banner text accepted (Arabic + English)
+  acceptedAt DateTime @default(now()) @map("accepted_at")
+
+  user  User      @relation(fields: [userId], references: [id])
+  draft PackDraft? @relation(fields: [draftId], references: [id])
+
+  @@map("acknowledgments")
+}
+
+// User feedback loop (PRD 5.3 AC3 / 5.5 AC4): helpful | not_helpful | needs_facts
+model Feedback {
+  id         String @id @default(cuid()) @map("id")
+  userId     String @map("user_id")
+  caseId     String @map("case_id")
+  targetType String @map("target_type") // alert | ground
+  targetId   String @map("target_id") // rule/alert id
+  value      String @map("value")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+  case Case @relation(fields: [caseId], references: [id])
+
+  @@map("feedbacks")
+}
+
+// Consent record (PRD 5.1 AC3): data stored, purpose, retention, deletion rights
+model Consent {
+  id         String   @id @default(cuid()) @map("id")
+  userId     String   @map("user_id")
+  caseId     String?  @map("case_id")
+  scope      String   @default("case_data") @map("scope") // case_data | voice_note | ngo_assisted
+  version    String   @default("v2.1") @map("version")
+  textSnapshot String @map("text_snapshot")
+  acceptedAt DateTime @default(now()) @map("accepted_at")
+
+  user User @relation(fields: [userId], references: [id])
+  case Case? @relation(fields: [caseId], references: [id])
+
+  @@map("consents")
+}
+
+// Full audit logs for data access and exports (PRD 6.7). Append-only under
+// Postgres RLS (no UPDATE/DELETE policy for bb_app — P12).
+model AuditLog {
+  id     String   @id @default(cuid()) @map("id")
+  orgId  String?  @map("org_id")
+  userId String?  @map("user_id")
+  at     DateTime @default(now()) @map("at")
+  action String   @map("action")
+  detail String?  @map("detail")
+
+  org Organization? @relation(fields: [orgId], references: [id])
+
+  @@map("audit_logs")
+}
+
+// ============== Phase A A2.3: per-tenant envelope encryption ==============
+
+model OrgEncryptionKey {
+  id          String    @id @default(cuid()) @map("id")
+  orgId       String    @map("org_id")
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  keyVersion  Int       @map("key_version") // monotonically increasing per org
+  wrappedDek  String    @map("wrapped_dek") // DEK wrapped by KMS KEK (never a raw key)
+  // active | retired (no new writes) | destroyed (crypto-shredded)
+  state       String    @default("active") @map("state")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  destroyedAt DateTime? @map("destroyed_at")
+
+  @@unique([orgId, keyVersion])
+  @@map("org_encryption_keys")
+}
+
+// ============== RAG Phase 1 (docs/RAG_SPEC.md §4.1) — additive ==============
+// These models document the runtime DDL that lives in src/lib/sqlite.mjs
+// (SQLite) and scripts/pg/007_rag.sql (Postgres). RAG chunks are RETRIEVAL
+// PROPOSALS ONLY — LegalProvision remains the sole citation source of truth.
+
+model RagChunk {
+  id               String   @id @default(cuid()) @map("id")
+  provisionId      String?  @map("provision_id") // read-only linkage to the LKB
+  lawId            String   @map("law_id")
+  articleNo        String   @map("article_no")
+  articlePart      Int      @default(1) @map("article_part")
+  chapterHeading   String?  @map("chapter_heading")
+  amendmentVersion String   @default("original") @map("amendment_version")
+  effectiveFrom    DateTime? @map("effective_from")
+  effectiveTo      DateTime? @map("effective_to")
+  gazetteIssue     String?  @map("gazette_issue")
+  gazetteDate      DateTime? @map("gazette_date")
+  textCanonical    String   @map("text_canonical")
+  textNormalized   String   @map("text_normalized")
+  textHash         String   @map("text_hash")
+  // JSON array in Phase 1 on both backends; pgvector(1024) column is the
+  // Phase R0 migration (Prisma Unsupported — raw SQL, documented deferral)
+  embedding        String?
+  ocrEngine        String?  @map("ocr_engine")
+  ocrConfidence    Float?   @map("ocr_confidence")
+  ingestJobId      String   @map("ingest_job_id")
+  isActive         Boolean  @default(true) @map("is_active")
+  status           String   @default("CHUNKED") // CHUNKED|EMBEDDED|LIVE|REJECTED
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@unique([lawId, articleNo, articlePart, textHash])
+  @@index([lawId, articleNo])
+  @@map("rag_chunks")
+}
+
+model IngestJob {
+  id           String   @id @default(cuid()) @map("id")
+  manifestHash String   @unique @map("manifest_hash") // idempotency (RAG-16)
+  issueNo      String   @map("issue_no")
+  publishDate  DateTime @map("publish_date")
+  sourceType   String   @default("txt") @map("source_type")
+  sourcePath   String   @map("source_path")
+  sourceSha256 String   @map("source_sha256")
+  status       String   @default("DISCOVERED") // DISCOVERED|BLOCKED_POLICY|REJECTED|CHUNKED|LAWYER_REVIEW|EMBEDDED|INDEXED|LIVE
+  attested     Boolean  @default(false) // false = provisional mirror source, never LIVE
+  ocrEngine    String?  @map("ocr_engine")
+  stats        String?  // JSON
+  createdBy    String   @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime? @map("updated_at")
+
+  @@map("rag_ingest_jobs")
+}
+
+model ProvisionAmendment {
+  id              String    @id @default(cuid()) @map("id")
+  amendingLawId   String?   @map("amending_law_id")
+  amendingArticle String?   @map("amending_article")
+  targetLawId     String    @map("target_law_id")
+  targetArticle   String    @map("target_article")
+  action          String    // REPLACE|INSERT|REPEAL|RENUMBER|RESTATE|GENERAL_REPEAL
+  gazetteIssue    String?   @map("gazette_issue")
+  gazetteDate     DateTime? @map("gazette_date")
+  newProvisionId  String?   @map("new_provision_id")
+  appliedAt       DateTime? @map("applied_at")
+  detectedBy      String    @default("pipeline") @map("detected_by")
+  approvedBy      String?   @map("approved_by") // lawyer gate before any application
+  ingestJobId     String?   @map("ingest_job_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@index([targetLawId, targetArticle])
+  @@map("provision_amendments")
+}
+
+model RagQueryLog {
+  id        String   @id @default(cuid()) @map("id")
+  orgId     String?  @map("org_id") // org-scoped; query TEXT is never stored
+  queryHash String   @map("query_hash") // sha256(normalized query)
+  latencyMs Int?     @map("latency_ms")
+  embedMode String?  @map("embed_mode")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([orgId])
+  @@map("rag_query_log")
+}

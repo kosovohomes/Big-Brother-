@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://big-brother.local/schemas/rag/chunk.schema.json",
+  "title": "Article-anchored Legal Chunk (v1)",
+  "description": "One article or article-paragraph of a Kuwaiti law. Canonical text is verbatim gazette text; normalized text follows the arabic.ts normalization spec (parity-locked). See docs/RAG_SPEC.md sections 2.3-2.4 and docs/rag/DELIVERABLES.md section 7.3.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["lawId", "articleNo", "articlePart", "textCanonical", "textNormalized", "textHash", "status", "gazetteRef"],
+  "properties": {
+    "chunkId": { "type": "string" },
+    "lawId": { "type": "string", "minLength": 1 },
+    "articleNo": { "type": "string", "minLength": 1, "description": "Anchor: e.g. \"163\" or range \"257-260\"" },
+    "articlePart": { "type": "integer", "minimum": 1, "description": "Sequence for long articles split on paragraph boundaries" },
+    "chapterHeading": { "type": ["string", "null"], "description": "Preceding Bab/Fasl heading" },
+    "amendmentVersion": { "type": "string", "default": "original" },
+    "effectiveFrom": { "type": ["string", "null"], "format": "date-time" },
+    "effectiveTo": { "type": ["string", "null"], "format": "date-time" },
+    "gazetteRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["issueNo", "publishDate"],
+      "properties": {
+        "issueNo": { "type": "string" },
+        "publishDate": { "type": "string", "format": "date" },
+        "page": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "textCanonical": { "type": "string", "minLength": 1, "description": "Verbatim gazette text — display + verbatim LLM injection" },
+    "textNormalized": { "type": "string", "minLength": 1, "description": "arabic.ts-spec normalization — indexing/embedding only" },
+    "textHash": { "type": "string", "pattern": "^[a-f0-9]{64}$", "description": "sha256(lawId|articleNo|articlePart|textNormalized) — dedup + grounding verification" },
+    "ocr": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["engine", "confidence"],
+      "properties": {
+        "engine": { "enum": ["paddleocr", "tesseract-ara", "text-born"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1, "description": "Pages below OCR_MIN_CONFIDENCE (0.85) route to OCR_REVIEW, never LIVE" }
+      }
+    },
+    "provisionId": { "type": ["string", "null"], "description": "Linked LegalProvision id once reviewed" },
+    "supersedesId": { "type": ["string", "null"], "description": "Set when this chunk's application supersedes an older provision version" },
+    "status": { "enum": ["CHUNKED", "LINKED", "QA_PASS", "LAWYER_REVIEW", "EMBEDDED", "INDEXED", "LIVE", "REJECTED"] },
+    "reviewedBy": { "type": ["string", "null"] },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

@@ -1,0 +1,117 @@
+{
+  "generatedAt": "2026-09-07T23:17:04.485Z",
+  "corpusDir": "/home/z/my-project/corpus",
+  "backend": "sqlite",
+  "dryRun": false,
+  "reset": false,
+  "files": [
+    {
+      "file": "KW_PenalCode_16_1960_clean.json",
+      "lawId": "16/1960",
+      "status": "ok",
+      "ingested": 0,
+      "skippedExisting": 279,
+      "skippedFixture": 14,
+      "skippedDuplicate": 0,
+      "splitVersions": 0,
+      "repealMarked": 0,
+      "details": []
+    },
+    {
+      "file": "KW_CriminalProcedure_17_1960_clean.json",
+      "lawId": "17/1960",
+      "status": "ok",
+      "ingested": 0,
+      "skippedExisting": 256,
+      "skippedFixture": 0,
+      "skippedDuplicate": 7,
+      "splitVersions": 0,
+      "repealMarked": 0,
+      "details": [
+        {
+          "article": "5",
+          "issue": "duplicate article number in file — first occurrence kept, variant recorded",
+          "variantText": "الحكم الصادر في جنحة بالغرامة التي لا تجاوز اربعين روبيةا لا يجوز استئنافه من المحكوم عليه ويجوز استئنافه من المدعي .والحكم الصادر في جنحة بالبراءة يجوز استئنافه من المدعي .ما عدا ذلك من الاحكام الصدارة في الجنح تكون قابلة للاستئناف من المحكوم عليه ومن المدعي."
+        },
+        {
+          "article": "60",
+          "issue": "duplicate article number in file — first occurrence kept, variant recorded",
+          "variantText": "يجب على رجال الشرطة اذا قبضوا على المتهم في الحالات السابقة او سلم اليهم مقبوضا عليه بمعرفة احد الافراد ،ان يسلموه الى المحقق)) .ولا يجوز بأية حال ان يبقى المقبوض عليه محجوزا مدة تزيد على ثمان وأربعين ساعة ،دون امر كتابي من المحقق بحبسه احتياطيا(( ."
+        },
+        {
+          "article": "69",
+          "issue": "duplicate article number in file — first occurrence kept, variant recorded",
+          "variantText": "tلمنعه من الهرب أو من التأثير في ))إذا رؤى أن مصلحة التحقيق تستوجب حبس المتهم احتياطيا tمدة لا تزيد على عشرة أيام من تاريخ القبض عليه. سير التحقيق،جاز للمحقق حبسه احتياطيا tالتظلم من قرار حبسه أمام رئيس المحكمة المختصة بتجديد ويجوز للمحبوس احتياطيا الحبس،وعلى رئيس المحكمة الفصل في التظلم خلال مدة لا تجاوز ثمان وأربعين ساعة من تاريخ .tويجب عرض المتهم على رئيس تقديمه،وفي حالة رفض التظلم يجب أن يكون "
+        },
+        {
+          "article": "70",
+          "issue": "duplicate article number in file — first occurrence kept, variant recorded",
+          "variantText": "اذا استمر المتهم محبوسا مدة ستة شهور من تاريخ القبض عليه ،لم يجز تجديد حبسه الا بأمر من المحكمة المختصة بنظر الدعوى بناء على طلب المحقق ،وبعد سماع اقوال المتهم والاطلاع على ما تم في التحقيق .يكون امر المحكمة بالتجديد لمدة ثلاثين يوما كل مرة."
+        },
+        {
+          "article": "75",
+          "issue": "duplicate article number in file — first occurrence kept, variant recorded",
+          "variantText": "))للمتهم وللمجني عليه الحق في حضور جميع إجراءات التحقيق الإبتدائي،ولكل منهما أن يحب t محاميه في جميع الأحوال،وليس للمحامي أن يتكلم إلا بإذن من المحقق،وإذا كان المتهم مقبوضا ،tوجب على المحقق تمكين المتهم من إحضار محاميه أثناء التحقيق .وللنائب عليه أو محبوسا العام وميدر عام الإدارة العامة للتحقيقات-كل فيما يخصه-إذا اقتضت ضرورة التحقيق أو tوأن يأمر بمنع نشر أي أخبار أو بيانات عنه للمصلحة العامة،أن يأ"
+        },
+        {
+          "article": "148",
+          "issue": "duplicate article number in file — first occurrence kept, variant recorded",
+          "variantText": "يجوز للمدعى العام ان يطلب من محكمة الجنح اصدار امر جزائي بالعقوبة على المتهم في جنحة لا تزيد عقوبتها على الحبس مدة سنة هلى المتهم في جنحة لا تزيد عقوبتها على دينار .يكون ذلك بعريضة دعوى مع بيان ان المطلوب هو الفصل فيها بأمر جزائي ،ويرفق بالعريضة جميع الاوراق والمحاضر المؤبدة للاتهام .وتفصل المحكمة في هذا الطلب في غيبة المتهم بطريقة موجزة دون حاجة الى تحقيق بالجلسة ،اكتفاء بالاطلاع على الاوراق ومحا"
+        },
+        {
+          "article": "230",
+          "issue": "duplicate article number in file — first occurrence kept, variant recorded",
+          "variantText": "اذا لم يقم المحكوم عليه بدفع الغرامة المحكوم بها ،حصلت بطريق التنفيذ الجبري على امواله .ولرئيس الشرطة والامن العام او لرئيس المحكمة التي اصدرت الحكم اذا طلب المحكوم قانون رقم 17لسنة 1960بإصدار قانون الإجراءات والمحاكمات الجزائية ) ( 1960 / 17 عليه ذلك ،وكانت حالته المالية تبرر قبول الطلب ،ان يأمر بتقسيط المبلغ المحكوم به على دفعات او تأجيله اجلا معقولا ،على الا يتأخر دفع مبلغ الغرامة بأكمله عن سنة"
+        }
+      ]
+    },
+    {
+      "file": "KW_CivilProcedure_38_1980_clean.json",
+      "lawId": "38/1980",
+      "status": "ok",
+      "ingested": 0,
+      "skippedExisting": 310,
+      "skippedFixture": 0,
+      "skippedDuplicate": 1,
+      "splitVersions": 0,
+      "repealMarked": 0,
+      "details": [
+        {
+          "article": "204 مكرر",
+          "issue": "duplicate article number in file — first occurrence kept, variant recorded",
+          "variantText": "أ إذا تصرف المدين في ماله بغير عوض أو بأقل من سعره أو قيمته التي يتداول فيها بالسوق بفارق ملحوظ بعد تاريخ نشوء الدين، فإن لمدير إدارة التنفيذ أو من يعاونه من القضاة – بناء على طلب الدائن – أن يأمر بوقف التعامل على هذا المال إذا كان تحت يد من تلقاه من المدين. ويعلن الدائن مدينه والمتصرف إليه بالأمر عن طريق إعلان الأوراق القضائية المبينة في هذا القانون، وإذا لم يلتزم المتصرف إليه إعلانه – بالأمر، جا"
+        }
+      ]
+    },
+    {
+      "file": "KW_CivilCode_67_1980_clean.json",
+      "lawId": "67/1980",
+      "status": "ok",
+      "ingested": 0,
+      "skippedExisting": 1082,
+      "skippedFixture": 0,
+      "skippedDuplicate": 0,
+      "splitVersions": 0,
+      "repealMarked": 0,
+      "details": []
+    },
+    {
+      "file": "KW_Rental_35_1978_clean.json",
+      "lawId": "35/1978",
+      "status": "ok",
+      "ingested": 0,
+      "skippedExisting": 29,
+      "skippedFixture": 0,
+      "skippedDuplicate": 0,
+      "splitVersions": 0,
+      "repealMarked": 0,
+      "details": []
+    }
+  ],
+  "audit": {
+    "action": "lkb.ingest",
+    "at": "2026-09-07T23:17:04.519Z",
+    "inserted": 0
+  },
+  "refused": []
+}
